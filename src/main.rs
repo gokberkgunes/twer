@@ -38,26 +38,47 @@ fn run(args: &Args) -> Result<()> {
         args.path.clone()
     };
 
-    let dmenu_output = run_dmenu(conf_path);
+    // let dmenu_output = run_dmenu(conf_path);
+    set_links_file(conf_path);
 
     Ok(())
 }
 
 
 fn get_links_dir() -> String {
-    match env::var("XDG_DATA_HOME") {
+    match env::var("XDG_CONFIG_HOME") {
         Ok(v) => {
             String::from(v + "/twer/")
         },
         Err(_) => {
             match env::var("HOME") {
-                Ok(v) => {
-                    String::from(v + ".local/share/twer/")
+                Ok(home_dir) => {
+                    String::from(home_dir + "/.local/etc/twer/")
                 },
                 Err(_) => {
-                    String::from("./links")
+                    panic!("Cannot find either $XDG_CONFIG_HOME or $HOME. Exiting.")
                 },
             }
+        },
+    }
+}
+
+fn set_links_file(links_dir: String) {
+    // Check if links_dir already exists.
+    match fs::read_dir(&links_dir) {
+        Ok(dirs) => {
+            println!("{dirs:?}");
+        },
+
+        Err(_) => {
+            match fs::create_dir(&links_dir) {
+                Err(why) => {
+                    println!("ERROR: {why}.");
+                },
+                Ok(_) => {
+                    println!("Created directory {links_dir}.");
+                },
+            };
         },
     }
 }
