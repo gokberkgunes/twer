@@ -5,6 +5,7 @@ use anyhow::Result;
 use std::path::{Path, PathBuf};
 use std::env;
 use std::process::{Command, Stdio};
+use std::collections::HashMap;
 
 #[derive(Debug, clap::Parser)]
 #[command(author, version)]
@@ -32,15 +33,17 @@ fn main() {
 
 fn run(args: &Args) -> Result<()> {
 
-    let conf_path = if args.path.is_empty() {
-        //String::from("./links")
-        get_config_dir()
-    } else {
-        args.path.clone()
-    };
+    // let conf_path = if args.path.is_empty() {
+    //     //String::from("./links")
+    //     get_config_dir()
+    // } else {
+    //     args.path.clone()
+    // };
+    let conf_path = get_config_dir();
 
-    // let dmenu_output = run_dmenu(conf_path);
-    set_check_config(conf_path);
+    //let dmenu_output = run_dmenu(conf_path);
+    set_check_config(&conf_path);
+    let config_map = parse_config(conf_path + "twer.conf");
 
     Ok(())
 }
@@ -64,8 +67,8 @@ fn get_config_dir() -> String {
     }
 }
 
-fn set_check_config(links_dir: String) {
-    let conf_path = PathBuf::from(links_dir.clone() + "config");
+fn set_check_config(links_dir: &String) {
+    let conf_path = PathBuf::from(links_dir.clone() + "twer.conf");
     let links_path = PathBuf::from(links_dir.clone() + "links");
 
     let conf_exists = fs::metadata(&conf_path).is_ok();
@@ -109,6 +112,25 @@ fn set_check_config(links_dir: String) {
             }
         },
     }
+}
+
+fn parse_config(conf_path: String) -> HashMap<String, String> {
+    let config = fs::read_to_string(conf_path).expect("Failed to read config file.");
+    let mut config_map: HashMap<String, String> = HashMap::new();
+
+    for line in config.lines() {
+        let line = &line[..line.find('#').unwrap_or(line.len())];
+        if line.trim().is_empty() {
+            continue;
+        }
+        let mut key_val = line.splitn(2, '=');
+        if let (Some(key), Some(val)) = (key_val.next(), key_val.next()) {
+            let key = key.trim().to_string();
+            let val = val.trim().to_string();
+            config_map.insert(key, val);
+        }
+    }
+    return config_map;
 }
 
 fn run_dmenu(conf_path: String) -> String {
