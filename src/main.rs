@@ -2,6 +2,7 @@ use clap::Parser;
 use std::fs;
 use std::io::{self, BufRead, BufReader, prelude::*};
 use anyhow::Result;
+use std::path::{Path, PathBuf};
 use std::env;
 use std::process::{Command, Stdio};
 
@@ -33,22 +34,22 @@ fn run(args: &Args) -> Result<()> {
 
     let conf_path = if args.path.is_empty() {
         //String::from("./links")
-        get_links_dir()
+        get_config_dir()
     } else {
         args.path.clone()
     };
 
     // let dmenu_output = run_dmenu(conf_path);
-    set_links_file(conf_path);
+    set_check_config(conf_path);
 
     Ok(())
 }
 
 
-fn get_links_dir() -> String {
+fn get_config_dir() -> String {
     match env::var("XDG_CONFIG_HOME") {
-        Ok(v) => {
-            String::from(v + "/twer/")
+        Ok(xdg_config_dir) => {
+            String::from(xdg_config_dir + "/twer/")
         },
         Err(_) => {
             match env::var("HOME") {
@@ -63,22 +64,49 @@ fn get_links_dir() -> String {
     }
 }
 
-fn set_links_file(links_dir: String) {
-    // Check if links_dir already exists.
-    match fs::read_dir(&links_dir) {
-        Ok(dirs) => {
-            println!("{dirs:?}");
-        },
+fn set_check_config(links_dir: String) {
+    let conf_path = PathBuf::from(links_dir.clone() + "config");
+    let links_path = PathBuf::from(links_dir.clone() + "links");
 
+    let conf_exists = fs::metadata(&conf_path).is_ok();
+    let links_exists = fs::metadata(&links_path).is_ok();
+
+    if conf_exists && links_exists {
+        return;
+    }
+
+    // Create director
+    match fs::read_dir(&links_dir) {
+        Ok(_) => {
+            if !conf_exists {
+                match fs::File::create_new(conf_path) {
+                    Err(why) => {
+                        panic!("ERROR: Can not create config file. ({why})");
+                    },
+                    Ok(_) => {},
+                };
+            }
+            if !links_exists {
+                match fs::File::create_new(links_path) {
+                    Err(why) => {
+                        panic!("ERROR: Can not create config file. ({why})");
+                    },
+                    Ok(_) => {},
+                };
+            }
+            return;
+        },
         Err(_) => {
             match fs::create_dir(&links_dir) {
                 Err(why) => {
-                    println!("ERROR: {why}.");
+                    panic!("ERROR: {why}.");
                 },
                 Ok(_) => {
                     println!("Created directory {links_dir}.");
+                    set_check_config(links_dir); // Recurse to create files.
+                    return;
                 },
-            };
+            }
         },
     }
 }
